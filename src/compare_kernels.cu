@@ -1,3 +1,4 @@
+
 #include "matmul.cuh"
 #include <algorithm>
 #include <cmath>
@@ -16,11 +17,11 @@ static double median(std::vector<double> v) {
     return n % 2 ? v[n / 2] : (v[n / 2 - 1] + v[n / 2]) / 2.0;
 }
 
-static double time_original(
+static double time_kernel(
+    void (*launch)(const float*, const float*, float*, int, int, int),
     const float* A, const float* B, float* C,
     int M, int N, int K) {
-    for (int i = 0; i < 3; ++i)
-        launch_register_blocked(A, B, C, M, N, K);
+    for (int i = 0; i < 5; ++i) launch(A, B, C, M, N, K);
     CUDA_CHECK(cudaDeviceSynchronize());
 
     cudaEvent_t start, stop;
@@ -28,9 +29,9 @@ static double time_original(
     CUDA_CHECK(cudaEventCreate(&stop));
 
     std::vector<double> times;
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 20; ++i) {
         CUDA_CHECK(cudaEventRecord(start));
-        launch_register_blocked(A, B, C, M, N, K);
+        launch(A, B, C, M, N, K);
         CUDA_CHECK(cudaEventRecord(stop));
         CUDA_CHECK(cudaEventSynchronize(stop));
         float ms = 0;
@@ -43,31 +44,10 @@ static double time_original(
     return median(times);
 }
 
-static double time_tuned(
+static void launch_tuned_C(
     const float* A, const float* B, float* C,
     int M, int N, int K) {
-    for (int i = 0; i < 3; ++i)
-        launch_register_blocked_v2(A, B, C, M, N, K, 2);
-    CUDA_CHECK(cudaDeviceSynchronize());
-
-    cudaEvent_t start, stop;
-    CUDA_CHECK(cudaEventCreate(&start));
-    CUDA_CHECK(cudaEventCreate(&stop));
-
-    std::vector<double> times;
-    for (int i = 0; i < 10; ++i) {
-        CUDA_CHECK(cudaEventRecord(start));
-        launch_register_blocked_v2(A, B, C, M, N, K, 2);
-        CUDA_CHECK(cudaEventRecord(stop));
-        CUDA_CHECK(cudaEventSynchronize(stop));
-        float ms = 0;
-        CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));
-        times.push_back(ms);
-    }
-
-    CUDA_CHECK(cudaEventDestroy(start));
-    CUDA_CHECK(cudaEventDestroy(stop));
-    return median(times);
+    launch_register_blocked_v2(A, B, C, M, N, K, 2);
 }
 
 int main() {
@@ -76,20 +56,20 @@ int main() {
     CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
     std::cout << "GPU: " << prop.name << "\n";
 
-    const int sizes[] = {128, 256, 512, 1024, 2048};
-    std::ofstream csv("results/kernel_comparison.csv");
+    const int sizes[] = {128, 256, 320, 384, 512, 640, 768,
+                         1024, 1280, 1536, 2048};
+    std::ofstream csv("results/kernel_comparison_repeated.csv");
     if (!csv) {
-        std::cerr << "Cannot create results/kernel_comparison.csv\n";
+        std::cerr << "Cannot create results/kernel_comparison_repeated.csv\n";
         return 1;
     }
 
-    csv << "gpu,M,N,K,original_ms,tuned_C_ms,speedup,original_correct,tuned_correct\n";
+    csv << "gpu,N,original_median_ms,tuned_median_ms,speedup,"
+           "original_min_ms,original_max_ms,tuned_min_ms,tuned_max_ms\n";
 
     for (int size : sizes) {
-        const int M = size, N = size, K = size;
+        int M = size, N = size, K = size;
         std::vector<float> A((size_t)M*K), B((size_t)K*N);
-        std::vector<float> original((size_t)M*N), tuned((size_t)M*N);
-
         std::mt19937 rng(12345 + size);
         std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
         for (float& x : A) x = dist(rng);
@@ -98,46 +78,40 @@ int main() {
         float *dA=nullptr, *dB=nullptr, *dC=nullptr;
         CUDA_CHECK(cudaMalloc(&dA, A.size()*sizeof(float)));
         CUDA_CHECK(cudaMalloc(&dB, B.size()*sizeof(float)));
-        CUDA_CHECK(cudaMalloc(&dC, original.size()*sizeof(float)));
+        CUDA_CHECK(cudaMalloc(&dC, (size_t)M*N*sizeof(float)));
         CUDA_CHECK(cudaMemcpy(dA,A.data(),A.size()*sizeof(float),cudaMemcpyHostToDevice));
         CUDA_CHECK(cudaMemcpy(dB,B.data(),B.size()*sizeof(float),cudaMemcpyHostToDevice));
 
-        launch_register_blocked(dA,dB,dC,M,N,K);
-        CUDA_CHECK(cudaDeviceSynchronize());
-        CUDA_CHECK(cudaMemcpy(original.data(),dC,original.size()*sizeof(float),cudaMemcpyDeviceToHost));
-
-        launch_register_blocked_v2(dA,dB,dC,M,N,K,2);
-        CUDA_CHECK(cudaDeviceSynchronize());
-        CUDA_CHECK(cudaMemcpy(tuned.data(),dC,tuned.size()*sizeof(float),cudaMemcpyDeviceToHost));
-
-        // Compare both kernels against the original kernel's output.
-        // This checks agreement between implementations; previous cuBLAS checks
-        // established correctness for each implementation.
-        double max_diff = 0.0;
-        for (size_t i = 0; i < original.size(); ++i) {
-            double denom = std::max(std::abs((double)original[i]), 1.0);
-            max_diff = std::max(max_diff,
-                std::abs((double)original[i] - tuned[i]) / denom);
+        std::vector<double> orig_rounds, tuned_rounds;
+        for (int round = 0; round < 5; ++round) {
+            double o, t;
+            if (round % 2 == 0) {
+                o = time_kernel(launch_register_blocked,dA,dB,dC,M,N,K);
+                t = time_kernel(launch_tuned_C,dA,dB,dC,M,N,K);
+            } else {
+                t = time_kernel(launch_tuned_C,dA,dB,dC,M,N,K);
+                o = time_kernel(launch_register_blocked,dA,dB,dC,M,N,K);
+            }
+            orig_rounds.push_back(o);
+            tuned_rounds.push_back(t);
         }
-        bool original_ok = true;
-        bool tuned_ok = std::isfinite(max_diff) && max_diff < 1e-3;
 
-        // Alternate timing order to reduce systematic ordering bias.
-        double original_ms = time_original(dA,dB,dC,M,N,K);
-        double tuned_ms = time_tuned(dA,dB,dC,M,N,K);
-        double speedup = original_ms / tuned_ms;
+        double o_med = median(orig_rounds);
+        double t_med = median(tuned_rounds);
+        double speedup = o_med / t_med;
 
-        std::cout << size << "^3 | original=" << std::fixed
-                  << std::setprecision(4) << original_ms << " ms"
-                  << " | tuned C=" << tuned_ms << " ms"
-                  << " | speedup=" << std::setprecision(3) << speedup << "x"
-                  << " | max relative difference=" << std::scientific
-                  << max_diff << " | "
-                  << (tuned_ok ? "PASS" : "FAIL") << "\n";
+        auto minmax_o = std::minmax_element(orig_rounds.begin(), orig_rounds.end());
+        auto minmax_t = std::minmax_element(tuned_rounds.begin(), tuned_rounds.end());
 
-        csv << "\"" << prop.name << "\"," << M << "," << N << "," << K
-            << "," << original_ms << "," << tuned_ms << "," << speedup
-            << "," << (original_ok ? 1 : 0) << "," << (tuned_ok ? 1 : 0) << "\n";
+        std::cout << size << "^3 | original median=" << std::fixed
+                  << std::setprecision(4) << o_med << " ms"
+                  << " | tuned median=" << t_med << " ms"
+                  << " | speedup=" << std::setprecision(3) << speedup << "x\n";
+
+        csv << "\"" << prop.name << "\"," << size << "," << o_med << ","
+            << t_med << "," << speedup << "," << *minmax_o.first << ","
+            << *minmax_o.second << "," << *minmax_t.first << ","
+            << *minmax_t.second << "\n";
 
         CUDA_CHECK(cudaFree(dA));
         CUDA_CHECK(cudaFree(dB));
@@ -145,6 +119,6 @@ int main() {
     }
 
     csv.close();
-    std::cout << "Saved results/kernel_comparison.csv\n";
+    std::cout << "Saved results/kernel_comparison_repeated.csv\n";
     return 0;
 }

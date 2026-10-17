@@ -44,6 +44,23 @@ static void launch_register_blocked_tuned(
     launch_register_blocked_v2(A, B, C, M, N, K, 2);
 }
 
+
+// Initial workload-aware dispatcher.
+// Threshold is a hypothesis to validate with repeated measurements.
+static void launch_register_blocked_adaptive(
+    const float* A, const float* B, float* C,
+    int M, int N, int K)
+{
+    const bool square = (M == N && N == K);
+    const bool large_enough = (M >= 384);
+
+    if (square && large_enough) {
+        launch_register_blocked_tuned(A, B, C, M, N, K);
+    } else {
+        launch_register_blocked(A, B, C, M, N, K);
+    }
+}
+
 static const int WARMUP = 3;
 static const int TRIALS = 10;
 static const int CPU_MAX_N = 1024;  // skip the CPU baseline above this size (too slow)
@@ -123,6 +140,7 @@ int main(int argc, char** argv) {
         {"tiled", launch_tiled},
         {"register_blocked", launch_register_blocked},
         {"register_blocked_tuned", launch_register_blocked_tuned},
+        {"register_blocked_adaptive", launch_register_blocked_adaptive},
     };
 
     cublasHandle_t handle;

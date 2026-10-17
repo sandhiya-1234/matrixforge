@@ -1,0 +1,19 @@
+gpu,M,N,K,kernel,median_ms,gflops,max_rel_err,pct_of_cublas,correct
+"Tesla T4",448,448,448,cublas,0.1476,1218.50,0,100.0,1
+"Tesla T4",448,448,448,naive,0.5550,324.01,5.499e-06,26.59,1
+"Tesla T4",448,448,448,tiled,0.3612,497.89,5.499e-06,40.86,1
+"Tesla T4",448,448,448,register_blocked,0.1939,927.35,5.499e-06,76.11,1
+"Tesla T4",448,448,448,register_blocked_tuned,0.1413,1272.87,5.499e-06,104.46,1
+"Tesla T4",448,448,448,register_blocked_adaptive,0.1413,1272.58,5.499e-06,104.44,1
+"Tesla T4",896,896,896,cublas,0.4281,3360.32,0,100.0,1
+"Tesla T4",896,896,896,naive,4.6408,310.00,1.144e-05,9.23,1
+"Tesla T4",896,896,896,tiled,2.9721,484.06,1.144e-05,14.41,1
+"Tesla T4",896,896,896,register_blocked,1.5370,935.99,1.144e-05,27.85,1
+"Tesla T4",896,896,896,register_blocked_tuned,0.7454,1929.93,1.144e-05,57.43,1
+"Tesla T4",896,896,896,register_blocked_adaptive,0.7435,1935.08,1.144e-05,57.59,1
+"Tesla T4",1792,1792,1792,cublas,1.8719,6148.48,0,100.0,1
+"Tesla T4",1792,1792,1792,naive,26.5216,433.95,0.000e+00,7.06,1
+"Tesla T4",1792,1792,1792,tiled,17.7214,649.45,0.000e+00,10.56,1
+"Tesla T4",1792,1792,1792,register_blocked,8.5675,1343.35,0.000e+00,21.85,1
+"Tesla T4",1792,1792,1792,register_blocked_tuned,4.2435,2712.22,0.000e+00,44.11,1
+"Tesla T4",1792,1792,1792,register_blocked_adaptive,4.2540,2705.52,0.000e+00,44.00,1
