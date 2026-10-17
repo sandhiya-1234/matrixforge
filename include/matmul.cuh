@@ -21,4 +21,6 @@ void launch_naive(const float* dA, const float* dB, float* dC, int M, int N, int
 // TODO (next steps), same signature:
 // void launch_coalesced(...);
 void launch_tiled(const float* dA, const float* dB, float* dC, int M, int N, int K);
-// void launch_register_blocked(...);
+void launch_register_blocked(
+    const float* dA, const float* dB, float* dC,
+    int M, int N, int K);

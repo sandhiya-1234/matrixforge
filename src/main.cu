@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
         {"naive", launch_naive},
         // {"coalesced", launch_coalesced},
         {"tiled", launch_tiled},
-        // {"register_blocked", launch_register_blocked},
+        {"register_blocked", launch_register_blocked},
     };
 
     cublasHandle_t handle;

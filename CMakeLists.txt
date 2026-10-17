@@ -27,7 +27,7 @@ add_executable(matmul_bench
   src/naive.cu
   src/cpu_baseline.cpp
   src/tiled.cu
-  # src/register_blocked.cu
+  src/register_blocked.cu
 )
 target_link_libraries(matmul_bench PRIVATE cublas)
 # Per-kernel register / shared-memory usage is printed at build time with this flag:
