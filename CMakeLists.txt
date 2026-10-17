@@ -28,7 +28,30 @@ add_executable(matmul_bench
   src/cpu_baseline.cpp
   src/tiled.cu
   src/register_blocked.cu
+  src/register_blocked_v2.cu
 )
 target_link_libraries(matmul_bench PRIVATE cublas)
 # Per-kernel register / shared-memory usage is printed at build time with this flag:
 target_compile_options(matmul_bench PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--ptxas-options=-v>)
+
+
+# Separate tuning executable
+add_executable(matmul_tune
+  src/tuning_main.cu
+  src/register_blocked_v2.cu
+)
+target_link_libraries(matmul_tune PRIVATE cublas)
+target_compile_options(matmul_tune PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:--ptxas-options=-v>
+)
+
+
+add_executable(compare_kernels
+  src/compare_kernels.cu
+  src/register_blocked.cu
+  src/register_blocked_v2.cu
+)
+target_link_libraries(compare_kernels PRIVATE cublas)
+target_compile_options(compare_kernels PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:--ptxas-options=-v>
+)

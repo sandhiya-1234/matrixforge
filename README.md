@@ -1,57 +1,40 @@
-# CUDA Matrix Multiplication Optimizer
+# MatrixForge
 
-Progressively optimized CUDA SGEMM kernels, validated against a CPU reference and
-benchmarked against cuBLAS.
+MatrixForge is a CUDA matrix multiplication optimization project that implements and benchmarks FP32 SGEMM kernels against NVIDIA cuBLAS.
 
-> Status: starter. Naive kernel + benchmark harness done. Tiled and register-blocked
-> kernels are next.
+## Implemented Kernels
 
-## Kernels
+| Kernel | Optimization | Status |
+|---|---|---|
+| `naive` | One thread computes one output element | Implemented |
+| `tiled` | Shared-memory tiling and data reuse | Implemented |
+| `register_blocked` | Multiple outputs computed per thread using registers | Implemented |
+| `register_blocked_tuned` | Configurable register-blocked kernel | Implemented |
+| cuBLAS | NVIDIA matrix multiplication library | Performance reference |
 
-| # | Kernel | Idea | Status |
-|---|--------|------|--------|
-| 1 | `naive` | one thread per output element, global-memory reads | done |
-| 2 | `coalesced` | indexing so neighbouring threads touch neighbouring addresses | todo |
-| 3 | `tiled` | shared-memory tiles, reuse data across a block | todo |
-| 4 | `register_blocked` | each thread computes several outputs in registers | todo |
+## Project Structure
 
-## Layout
+- `include/` — Kernel declarations
+- `src/` — CUDA kernels, benchmark, tuning, and comparison programs
+- `tests/` — Test programs
+- `scripts/` — Benchmark plotting script
+- `results/` — CSV measurements and generated graph
+- `CMakeLists.txt` — Build configuration
+- `COLAB.md` — Google Colab setup instructions
 
-```
-include/   matmul.cuh (launcher declarations), cpu_baseline.h
-src/       cpu_baseline.cpp, naive.cu, main.cu (validation + benchmarking)
-tests/     hello_cuda.cu (environment check)
-scripts/   plot_results.py
-results/   benchmark.csv, gflops.png (generated)
-```
+## Requirements
 
-## Build and run
+- NVIDIA GPU with CUDA support
+- CUDA Toolkit and `nvcc`
+- CMake and a C++ compiler
+- Python, pandas, and matplotlib for plotting
 
-See [COLAB.md](COLAB.md) for the free-GPU workflow. With a local NVIDIA GPU:
+If you do not have a local NVIDIA GPU, use Google Colab with a GPU runtime.
 
-```
-cmake -B build && cmake --build build -j
-./build/matmul_bench            # default sizes
-./build/matmul_bench 512 1024   # custom square sizes
-python scripts/plot_results.py
-```
+## Build and Run
 
-## Methodology
+From the project directory:
 
-- FP32, row-major, fixed RNG seed (42).
-- Timing: CUDA events, kernel only (no host<->device copies), 3 warm-up runs,
-  median of 10.
-- Throughput: GFLOP/s = 2*M*N*K / time.
-- Correctness: max relative error vs CPU baseline (cuBLAS as reference above
-  1024^3 where the CPU baseline is too slow), tolerance 1e-3. Includes non-square,
-  non-tile-multiple shapes.
-- cuBLAS is called via the row-major trick (swap A/B, swap M/N).
-
-## Results
-
-_Fill in from `results/benchmark.csv` after running on a GPU. Record GPU model and CUDA
-version._
-
-## What I learned / notes
-
-_Write down where each optimization helped, and where it didn't._
+```bash
+cmake -B build
+cmake --build build -j2

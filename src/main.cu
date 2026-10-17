@@ -20,6 +20,11 @@
 #include "cpu_baseline.h"
 #include "matmul.cuh"
 
+// Declaration for the separately compiled tuning kernel.
+void launch_register_blocked_v2(
+    const float*, const float*, float*, int, int, int, int);
+
+
 #define CUBLAS_CHECK(call)                                                      \
     do {                                                                        \
         cublasStatus_t s__ = (call);                                            \
@@ -29,6 +34,15 @@
             std::exit(EXIT_FAILURE);                                            \
         }                                                                       \
     } while (0)
+
+
+// Configuration C: BM=64, BN=64, BK=16, TM=4, TN=4.
+static void launch_register_blocked_tuned(
+    const float* A, const float* B, float* C,
+    int M, int N, int K)
+{
+    launch_register_blocked_v2(A, B, C, M, N, K, 2);
+}
 
 static const int WARMUP = 3;
 static const int TRIALS = 10;
@@ -108,6 +122,7 @@ int main(int argc, char** argv) {
         // {"coalesced", launch_coalesced},
         {"tiled", launch_tiled},
         {"register_blocked", launch_register_blocked},
+        {"register_blocked_tuned", launch_register_blocked_tuned},
     };
 
     cublasHandle_t handle;

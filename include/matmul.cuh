@@ -24,3 +24,7 @@ void launch_tiled(const float* dA, const float* dB, float* dC, int M, int N, int
 void launch_register_blocked(
     const float* dA, const float* dB, float* dC,
     int M, int N, int K);
+
+void launch_register_blocked_v2(
+    const float* dA, const float* dB, float* dC,
+    int M, int N, int K, int config_id);
