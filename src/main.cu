@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
     std::vector<Kernel> kernels = {
         {"naive", launch_naive},
         // {"coalesced", launch_coalesced},
-        // {"tiled", launch_tiled},
+        {"tiled", launch_tiled},
         // {"register_blocked", launch_register_blocked},
     };
 

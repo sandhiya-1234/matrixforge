@@ -26,7 +26,7 @@ add_executable(matmul_bench
   src/main.cu
   src/naive.cu
   src/cpu_baseline.cpp
-  # src/tiled.cu
+  src/tiled.cu
   # src/register_blocked.cu
 )
 target_link_libraries(matmul_bench PRIVATE cublas)
